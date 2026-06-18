@@ -34,7 +34,7 @@ def small_talk_reply(message: str) -> str | None:
     return None
 
 
-async def retrieve_context(query: str, n_results: int = 5) -> tuple[list[dict], float]:
+async def retrieve_context(query: str, n_results: int = 3) -> tuple[list[dict], float]:
     collection = get_collection()
     count = collection.count()
     if count == 0:
