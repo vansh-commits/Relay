@@ -93,8 +93,15 @@ async def websocket_chat(session_id: str, websocket: WebSocket):
                 try:
                     result = await rag_service.generate_response(user_content, session_id, db)
                 except Exception as exc:
-                    logger.error("RAG error", error=str(exc))
-                    await manager.send(session_id, {"type": "error", "code": "INTERNAL_ERROR", "message": "Something went wrong. Please try again."})
+                    detail = str(exc)
+                    logger.error("RAG error", error=detail)
+                    if "429" in detail or "quota" in detail.lower() or "rate" in detail.lower():
+                        msg = "We're experiencing high demand right now. Please try again in a moment."
+                        code = "RATE_LIMITED"
+                    else:
+                        msg = "Something went wrong. Please try again."
+                        code = "INTERNAL_ERROR"
+                    await manager.send(session_id, {"type": "error", "code": code, "message": msg})
                     continue
 
                 do_escalate, reason = escalation_service.should_escalate(
