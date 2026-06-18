@@ -20,6 +20,7 @@ if database_url:
 
 # Import all models so metadata is populated
 from app.database import Base
+import app.models.user  # noqa: F401
 import app.models.conversation  # noqa: F401
 import app.models.message  # noqa: F401
 import app.models.knowledge_source  # noqa: F401

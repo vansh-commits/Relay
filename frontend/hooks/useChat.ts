@@ -15,12 +15,13 @@ function getOrCreateSessionId(): string {
   return id;
 }
 
-export function useChat() {
-  const [sessionId] = useState(getOrCreateSessionId);
+export function useChat(token: string | null, onSent?: () => void) {
+  const [sessionId, setSessionId] = useState(getOrCreateSessionId);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [mode, setMode] = useState<ChatMode>("ai");
   const [isTyping, setIsTyping] = useState(false);
   const [escalationId, setEscalationId] = useState<string | null>(null);
+  const [quotaExceeded, setQuotaExceeded] = useState(false);
 
   const handleFrame = useCallback((frame: WSFrame) => {
     switch (frame.type) {
@@ -86,6 +87,29 @@ export function useChat() {
             timestamp: new Date().toISOString(),
           },
         ]);
+        // Conversation is closed — start a fresh session so the next message
+        // begins a brand-new conversation, and hand control back to the AI.
+        setMode("ai");
+        setEscalationId(null);
+        {
+          const next = crypto.randomUUID();
+          localStorage.setItem("cs_session_id", next);
+          setSessionId(next);
+        }
+        break;
+
+      case "quota_exceeded":
+        setIsTyping(false);
+        setQuotaExceeded(true);
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            role: "system",
+            content: frame.message,
+            timestamp: new Date().toISOString(),
+          },
+        ]);
         break;
 
       case "error":
@@ -103,7 +127,7 @@ export function useChat() {
     }
   }, []);
 
-  const { connected, send } = useWebSocket(sessionId, handleFrame);
+  const { connected, send } = useWebSocket(sessionId, token, handleFrame);
 
   const sendMessage = useCallback(
     (content: string) => {
@@ -115,8 +139,9 @@ export function useChat() {
       };
       setMessages((prev) => [...prev, msg]);
       send({ type: "message", content });
+      onSent?.();
     },
-    [send]
+    [send, onSent]
   );
 
   return {
@@ -125,6 +150,7 @@ export function useChat() {
     mode,
     isTyping,
     escalationId,
+    quotaExceeded,
     connected,
     sendMessage,
   };

@@ -1,4 +1,5 @@
 import json
+import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
@@ -10,8 +11,9 @@ from app.core.logging import logger
 from app.database import async_session_factory, get_db
 from app.models.conversation import Conversation
 from app.models.message import Message
+from app.models.user import User
 from app.schemas.chat import ConversationDetail, ConversationOut, MessageOut
-from app.services import escalation_service, rag_service
+from app.services import auth_service, escalation_service, rag_service
 
 router = APIRouter()        # REST endpoints, mounted under /api/v1
 ws_router = APIRouter()     # WebSocket, mounted at root (no prefix)
@@ -37,11 +39,11 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
-async def _get_or_create_conversation(session_id: str, db: AsyncSession) -> Conversation:
+async def _get_or_create_conversation(session_id: str, user_id, db: AsyncSession) -> Conversation:
     result = await db.execute(select(Conversation).where(Conversation.session_id == session_id))
     conv = result.scalar_one_or_none()
     if conv is None:
-        conv = Conversation(session_id=session_id)
+        conv = Conversation(session_id=session_id, user_id=user_id)
         db.add(conv)
         await db.commit()
         await db.refresh(conv)
@@ -50,11 +52,18 @@ async def _get_or_create_conversation(session_id: str, db: AsyncSession) -> Conv
 
 @ws_router.websocket("/ws/chat/{session_id}")
 async def websocket_chat(session_id: str, websocket: WebSocket):
+    # Authenticate from the ?token= query param (browsers can't set WS headers).
+    payload = auth_service.decode_token(websocket.query_params.get("token", ""))
+    if not payload:
+        await websocket.close(code=4401)  # unauthorized
+        return
+
+    user_id = uuid.UUID(payload["sub"])
     await manager.connect(session_id, websocket)
-    logger.info("WebSocket connected", session_id=session_id)
+    logger.info("WebSocket connected", session_id=session_id, user_id=str(user_id))
 
     async with async_session_factory() as db:
-        conversation = await _get_or_create_conversation(session_id, db)
+        conversation = await _get_or_create_conversation(session_id, user_id, db)
 
         await manager.send(session_id, {
             "type": "connected",
@@ -78,6 +87,15 @@ async def websocket_chat(session_id: str, websocket: WebSocket):
                 if not user_content:
                     continue
 
+                # Enforce the guest free-question quota
+                user = await db.get(User, user_id)
+                if user and user.is_guest and user.question_count >= settings.GUEST_QUESTION_LIMIT:
+                    await manager.send(session_id, {
+                        "type": "quota_exceeded",
+                        "message": "You've used all your free questions. Sign up to continue chatting.",
+                    })
+                    continue
+
                 # Store user message
                 user_msg = Message(
                     conversation_id=conversation.id,
@@ -85,8 +103,19 @@ async def websocket_chat(session_id: str, websocket: WebSocket):
                     content=user_content,
                 )
                 db.add(user_msg)
+                if user:
+                    user.question_count += 1
                 await db.commit()
                 await db.refresh(user_msg)
+
+                # If a human specialist is handling this conversation, don't run
+                # the AI — the message is recorded for the agent and the customer
+                # can keep talking freely.
+                status_res = await db.execute(
+                    select(Conversation.status).where(Conversation.id == conversation.id)
+                )
+                if status_res.scalar_one() in ("escalated", "assigned"):
+                    continue
 
                 # Signal typing
                 await manager.send(session_id, {"type": "typing", "role": "assistant"})

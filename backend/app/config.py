@@ -14,5 +14,11 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     FRONTEND_URL: str = "http://localhost:3000"
 
+    # Auth
+    JWT_SECRET: str = "change-me-in-production"
+    JWT_ALGORITHM: str = "HS256"
+    JWT_EXPIRE_DAYS: int = 30
+    GUEST_QUESTION_LIMIT: int = 4
+
 
 settings = Settings()

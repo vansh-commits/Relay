@@ -9,7 +9,7 @@ from app import chroma
 from app.config import settings
 from app.core.logging import setup_logging, logger
 from app.database import async_session_factory, engine
-from app.routers import chat, knowledge, escalation, feedback, analytics
+from app.routers import auth, chat, knowledge, escalation, feedback, analytics
 
 
 @asynccontextmanager
@@ -57,6 +57,7 @@ app.add_middleware(
 )
 
 app.include_router(chat.ws_router, tags=["chat"])
+app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(chat.router, prefix="/api/v1", tags=["chat"])
 app.include_router(knowledge.router, prefix="/api/v1/knowledge", tags=["knowledge"])
 app.include_router(escalation.router, prefix="/api/v1/escalations", tags=["escalations"])

@@ -106,8 +106,12 @@ async def resolve_escalation(
     await db.commit()
     await db.refresh(esc)
 
+    notes = (body.resolution_notes or "").strip()
+    resolution_text = (
+        f"Resolved by support: {notes}" if notes else "Your request has been resolved."
+    )
     await _notify_customer(esc.conversation_id, db, {
         "type": "resolved",
-        "message": "This conversation has been resolved. Feel free to start a new chat anytime.",
+        "message": resolution_text,
     })
     return EscalationOut.model_validate(esc)

@@ -25,7 +25,7 @@ export const api = {
   },
 };
 
-export function wsUrl(sessionId: string): string {
+export function wsUrl(sessionId: string, token: string): string {
   const base = BASE.replace(/^http/, "ws");
-  return `${base}/ws/chat/${sessionId}`;
+  return `${base}/ws/chat/${sessionId}?token=${encodeURIComponent(token)}`;
 }

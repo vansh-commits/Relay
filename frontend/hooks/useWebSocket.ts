@@ -6,7 +6,7 @@ import type { WSFrame } from "@/lib/types";
 
 type Handler = (frame: WSFrame) => void;
 
-export function useWebSocket(sessionId: string, onFrame: Handler) {
+export function useWebSocket(sessionId: string, token: string | null, onFrame: Handler) {
   const wsRef = useRef<WebSocket | null>(null);
   const retryRef = useRef(0);
   const shouldCloseRef = useRef(false);
@@ -19,11 +19,11 @@ export function useWebSocket(sessionId: string, onFrame: Handler) {
   onFrameRef.current = onFrame;
 
   const connect = useCallback(() => {
-    if (shouldCloseRef.current) return;
+    if (shouldCloseRef.current || !token) return;
     // Don't open a second socket if one is already open/connecting.
     if (wsRef.current && wsRef.current.readyState <= WebSocket.OPEN) return;
 
-    const ws = new WebSocket(wsUrl(sessionId));
+    const ws = new WebSocket(wsUrl(sessionId, token));
     wsRef.current = ws;
 
     ws.onopen = () => {
@@ -49,16 +49,17 @@ export function useWebSocket(sessionId: string, onFrame: Handler) {
     };
 
     ws.onerror = () => ws.close();
-  }, [sessionId]);
+  }, [sessionId, token]);
 
   useEffect(() => {
+    if (!token) return;
     shouldCloseRef.current = false;
     connect();
     return () => {
       shouldCloseRef.current = true;
       wsRef.current?.close();
     };
-  }, [connect]);
+  }, [connect, token]);
 
   const send = useCallback((frame: object) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {

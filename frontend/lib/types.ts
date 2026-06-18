@@ -26,6 +26,7 @@ export type WSFrame =
   | { type: "escalation"; escalation_id: string; reason: string; message: string }
   | { type: "agent_joined"; agent_name: string; message: string }
   | { type: "resolved"; message: string }
+  | { type: "quota_exceeded"; message: string }
   | { type: "error"; code: string; message: string }
   | { type: "pong" };
 
