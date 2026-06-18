@@ -17,19 +17,19 @@ export function QueryVolumeChart({ data }: Props) {
     <ResponsiveContainer width="100%" height={200}>
       <AreaChart data={formatted} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
         <defs>
-          <linearGradient id="queryGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="#1a1a2e" stopOpacity={0.12} />
-            <stop offset="95%" stopColor="#1a1a2e" stopOpacity={0} />
+          <linearGradient id="qGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%"  stopColor="#c96442" stopOpacity={0.2} />
+            <stop offset="95%" stopColor="#c96442" stopOpacity={0} />
           </linearGradient>
         </defs>
-        <CartesianGrid strokeDasharray="3 3" stroke="#f1f3f4" />
-        <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#9ca3af" }} tickLine={false} axisLine={false} />
-        <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} tickLine={false} axisLine={false} allowDecimals={false} />
+        <CartesianGrid strokeDasharray="3 3" stroke="#2a2a2a" />
+        <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#666" }} tickLine={false} axisLine={false} />
+        <YAxis tick={{ fontSize: 11, fill: "#666" }} tickLine={false} axisLine={false} allowDecimals={false} />
         <Tooltip
-          contentStyle={{ fontSize: 12, border: "1px solid #e5e7eb", borderRadius: 8, boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}
-          labelStyle={{ color: "#374151", fontWeight: 500 }}
+          contentStyle={{ fontSize: 12, background: "#212121", border: "1px solid #333", borderRadius: 8, color: "#ececec" }}
+          labelStyle={{ color: "#a0a0a0" }}
         />
-        <Area type="monotone" dataKey="count" name="Queries" stroke="#1a1a2e" strokeWidth={1.5} fill="url(#queryGrad)" dot={false} />
+        <Area type="monotone" dataKey="count" name="Queries" stroke="#c96442" strokeWidth={1.5} fill="url(#qGrad)" dot={false} />
       </AreaChart>
     </ResponsiveContainer>
   );

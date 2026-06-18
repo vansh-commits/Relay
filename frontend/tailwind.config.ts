@@ -11,38 +11,52 @@ const config: Config = {
     extend: {
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],
-        mono: ["JetBrains Mono", "monospace"],
       },
       colors: {
-        surface: {
-          DEFAULT: "#ffffff",
-          muted: "#f8f9fa",
-          subtle: "#f1f3f4",
+        bg: {
+          base:    "#1a1a1a",
+          surface: "#212121",
+          elevated:"#2a2a2a",
+          hover:   "#303030",
         },
         border: {
-          DEFAULT: "#e5e7eb",
-          muted: "#f3f4f6",
+          DEFAULT: "#333333",
+          subtle:  "#2a2a2a",
+        },
+        text: {
+          primary:   "#ececec",
+          secondary: "#a0a0a0",
+          muted:     "#666666",
         },
         accent: {
-          DEFAULT: "#1a1a2e",
-          hover: "#16213e",
+          DEFAULT: "#c96442",
+          hover:   "#b8563a",
+          subtle:  "#c9644215",
         },
+        success: "#4caf7d",
+        warning: "#d4a843",
+        danger:  "#e05252",
       },
       keyframes: {
         blink: {
-          "0%, 80%, 100%": { opacity: "0" },
-          "40%": { opacity: "1" },
+          "0%, 80%, 100%": { opacity: "0.2" },
+          "40%":            { opacity: "1" },
         },
-        "slide-up": {
-          from: { opacity: "0", transform: "translateY(8px)" },
-          to: { opacity: "1", transform: "translateY(0)" },
+        "fade-up": {
+          from: { opacity: "0", transform: "translateY(6px)" },
+          to:   { opacity: "1", transform: "translateY(0)" },
+        },
+        "pulse-dot": {
+          "0%, 100%": { opacity: "1" },
+          "50%":      { opacity: "0.4" },
         },
       },
       animation: {
-        blink: "blink 1.4s infinite ease-in-out",
-        "blink-delay-200": "blink 1.4s 0.2s infinite ease-in-out",
-        "blink-delay-400": "blink 1.4s 0.4s infinite ease-in-out",
-        "slide-up": "slide-up 0.2s ease-out",
+        blink:              "blink 1.4s infinite ease-in-out",
+        "blink-200":        "blink 1.4s 0.2s infinite ease-in-out",
+        "blink-400":        "blink 1.4s 0.4s infinite ease-in-out",
+        "fade-up":          "fade-up 0.18s ease-out",
+        "pulse-dot":        "pulse-dot 2s ease-in-out infinite",
       },
     },
   },
