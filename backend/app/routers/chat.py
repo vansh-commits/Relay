@@ -144,29 +144,35 @@ async def websocket_chat(session_id: str, websocket: WebSocket):
                 # Signal typing
                 await manager.send(session_id, {"type": "typing", "role": "assistant"})
 
+                # Retrieve (1 embedding call). If it fails — including the embedding
+                # rate limit — treat it as "can't answer confidently" and hand off to
+                # a human instead of blocking the user with an error.
                 try:
-                    # Retrieve first (1 embedding call). If the knowledge base has
-                    # no confident match, escalate immediately and skip generation —
-                    # saving a Gemini request on the common "we don't know" path.
                     chunks, confidence = await rag_service.retrieve_context(user_content)
-                    history = await rag_service.get_conversation_history(session_id, db, limit=10)
+                except Exception as exc:
+                    logger.warning("Retrieval failed; escalating", error=str(exc))
+                    chunks, confidence = [], 0.0
 
-                    if confidence < settings.CONFIDENCE_THRESHOLD:
-                        do_escalate, reason, content = True, "low_confidence", None
-                    else:
+                history = await rag_service.get_conversation_history(session_id, db, limit=10)
+
+                if confidence < settings.CONFIDENCE_THRESHOLD:
+                    # No confident match → escalate, skip generation entirely.
+                    do_escalate, reason, content = True, "low_confidence", None
+                else:
+                    try:
                         content = await rag_service.generate_answer(user_content, chunks, history)
                         do_escalate, reason = escalation_service.should_escalate(confidence, content)
-                except Exception as exc:
-                    detail = str(exc)
-                    logger.error("RAG error", error=detail)
-                    if "429" in detail or "quota" in detail.lower() or "rate" in detail.lower():
-                        msg = "We're experiencing high demand right now. Please try again in a moment."
-                        code = "RATE_LIMITED"
-                    else:
-                        msg = "Something went wrong. Please try again."
-                        code = "INTERNAL_ERROR"
-                    await manager.send(session_id, {"type": "error", "code": code, "message": msg})
-                    continue
+                    except Exception as exc:
+                        detail = str(exc)
+                        logger.error("Generation error", error=detail)
+                        if "429" in detail or "quota" in detail.lower() or "rate" in detail.lower():
+                            msg = "We're experiencing high demand right now. Please try again in a moment."
+                            code = "RATE_LIMITED"
+                        else:
+                            msg = "Something went wrong. Please try again."
+                            code = "INTERNAL_ERROR"
+                        await manager.send(session_id, {"type": "error", "code": code, "message": msg})
+                        continue
 
                 # Persist the assistant turn only when we actually generated one
                 assistant_msg = None
