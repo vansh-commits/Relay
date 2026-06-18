@@ -117,6 +117,30 @@ async def websocket_chat(session_id: str, websocket: WebSocket):
                 if status_res.scalar_one() in ("escalated", "assigned"):
                     continue
 
+                # Greetings / pleasantries get a friendly canned reply so they
+                # don't fall through to RAG and escalate. No API call.
+                canned = rag_service.small_talk_reply(user_content)
+                if canned:
+                    greeting_msg = Message(
+                        conversation_id=conversation.id,
+                        role="assistant",
+                        content=canned,
+                        confidence_score=1.0,
+                    )
+                    db.add(greeting_msg)
+                    await db.commit()
+                    await db.refresh(greeting_msg)
+                    await manager.send(session_id, {
+                        "type": "message",
+                        "message_id": str(greeting_msg.id),
+                        "role": "assistant",
+                        "content": canned,
+                        "confidence": 1.0,
+                        "mode": "ai",
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    })
+                    continue
+
                 # Signal typing
                 await manager.send(session_id, {"type": "typing", "role": "assistant"})
 

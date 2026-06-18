@@ -7,6 +7,32 @@ from app.models.message import Message
 from app.models.conversation import Conversation
 from app.services.gemini_service import gemini_service
 
+_GREETINGS = {
+    "hi", "hii", "hiya", "hey", "heya", "hello", "helo", "hey there", "hi there",
+    "hello there", "yo", "sup", "greetings", "good morning", "good afternoon",
+    "good evening", "howdy",
+}
+_HOW_ARE_YOU = {"how are you", "how are you doing", "how's it going", "hows it going", "what's up", "whats up"}
+_THANKS = {"thanks", "thank you", "thankyou", "thx", "ty", "thanks a lot", "thank you so much", "thank u"}
+_BYE = {"bye", "goodbye", "good bye", "see you", "see ya", "cya", "bye bye", "take care"}
+
+
+def small_talk_reply(message: str) -> str | None:
+    """Return a canned reply for greetings/pleasantries, else None.
+
+    Keeps social messages out of RAG so they don't escalate (and cost no API call).
+    """
+    text = message.strip().lower().rstrip("!.?,")
+    if text in _GREETINGS:
+        return "Hi there! How can I help you today?"
+    if text in _HOW_ARE_YOU:
+        return "I'm doing well, thanks for asking! What can I help you with?"
+    if text in _THANKS:
+        return "You're welcome! Is there anything else I can help you with?"
+    if text in _BYE:
+        return "Thanks for chatting — have a great day!"
+    return None
+
 
 async def retrieve_context(query: str, n_results: int = 5) -> tuple[list[dict], float]:
     collection = get_collection()
