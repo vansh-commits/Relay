@@ -1,8 +1,24 @@
 import asyncio
+import re
 
 import google.generativeai as genai
 
 from app.config import settings
+from app.core.logging import logger
+
+# Keep answers short and avoid burning the free-tier tokens-per-minute budget
+# (thinking models can otherwise spend hundreds of tokens per reply).
+_GEN_CONFIG = {"max_output_tokens": 768, "temperature": 0.3}
+
+_MAX_RETRIES = 4
+
+
+def _retry_delay_seconds(err: str, attempt: int) -> float:
+    """Honor Gemini's suggested retry_delay if present, else exponential backoff."""
+    match = re.search(r"retry_delay\D+(\d+)", err) or re.search(r"retry in (\d+)", err)
+    if match:
+        return min(float(match.group(1)) + 1, 30)
+    return min(2 ** attempt, 30)
 
 
 class GeminiService:
@@ -12,8 +28,21 @@ class GeminiService:
         self._embed_model = settings.GEMINI_EMBED_MODEL
 
     async def chat(self, prompt: str) -> str:
-        response = await asyncio.to_thread(self._chat_model.generate_content, prompt)
-        return response.text
+        for attempt in range(_MAX_RETRIES):
+            try:
+                response = await asyncio.to_thread(
+                    self._chat_model.generate_content, prompt, generation_config=_GEN_CONFIG
+                )
+                return response.text
+            except Exception as exc:
+                err = str(exc)
+                is_rate_limit = "429" in err or "quota" in err.lower() or "rate" in err.lower()
+                if is_rate_limit and attempt < _MAX_RETRIES - 1:
+                    delay = _retry_delay_seconds(err, attempt)
+                    logger.warning("Gemini rate limited, retrying", attempt=attempt + 1, delay=delay)
+                    await asyncio.sleep(delay)
+                    continue
+                raise
 
     async def embed_single(self, text: str) -> list[float]:
         result = await asyncio.to_thread(
