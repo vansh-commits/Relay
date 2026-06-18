@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.models.conversation import Conversation
 from app.models.escalation import Escalation
-from app.services.llm_service import llm_service
+from app.services.gemini_service import gemini_service
 
 _OUT_OF_SCOPE_PHRASES = [
     "i don't have specific information about that",
@@ -46,7 +46,7 @@ Include:
 4. Recommended next steps for the human agent
 
 Be concise and professional."""
-    return await llm_service.chat(prompt)
+    return await gemini_service.chat(prompt)
 
 
 async def create_escalation(

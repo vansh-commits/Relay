@@ -8,8 +8,8 @@ from app.config import settings
 class GeminiService:
     def __init__(self):
         genai.configure(api_key=settings.GEMINI_API_KEY)
-        self._chat_model = genai.GenerativeModel("gemini-2.0-flash")
-        self._embed_model = "models/text-embedding-004"
+        self._chat_model = genai.GenerativeModel(settings.GEMINI_CHAT_MODEL)
+        self._embed_model = settings.GEMINI_EMBED_MODEL
 
     async def chat(self, prompt: str) -> str:
         response = await asyncio.to_thread(self._chat_model.generate_content, prompt)
