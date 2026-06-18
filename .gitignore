@@ -1,0 +1,43 @@
+# Environment
+.env
+.env.local
+.env.*.local
+*.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+dist/
+build/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+
+# Node
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+
+# Docker volumes (local)
+postgres_data/
+chroma_data/
+
+# Uploads (keep dir, ignore contents)
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
