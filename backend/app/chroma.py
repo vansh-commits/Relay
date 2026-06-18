@@ -1,5 +1,3 @@
-mkdir -p backend/app
-cat > backend/app/chroma.py <<'PY'
 """Shared ChromaDB client.
 
 A single lazily-constructed HttpClient is reused across the app. This module
@@ -90,4 +88,3 @@ def ping() -> bool:
         _LAST_PING_AT = now
 
     return ok
-PY
