@@ -6,6 +6,7 @@ from app.config import settings
 from app.models.message import Message
 from app.models.conversation import Conversation
 from app.services.gemini_service import gemini_service
+from app.services.llm_service import llm_service
 
 
 async def retrieve_context(query: str, n_results: int = 5) -> tuple[list[dict], float]:
@@ -72,7 +73,7 @@ async def generate_response(user_message: str, session_id: str, db: AsyncSession
     history = await get_conversation_history(session_id, db, limit=10)
     chunks, confidence = await retrieve_context(user_message)
     prompt = _build_prompt(user_message, chunks, history)
-    content = await gemini_service.chat(prompt)
+    content = await llm_service.chat(prompt)
 
     return {
         "content": content,
