@@ -10,9 +10,10 @@ from app.core.logging import logger
 # (thinking models can otherwise spend hundreds of tokens per reply).
 _GEN_CONFIG = {"max_output_tokens": 768, "temperature": 0.3}
 
-# Fail fast: at most one short retry, so the chat never hangs on a long
-# rate-limit backoff. Speed is preferred over waiting out the full window.
-_MAX_RETRIES = 2
+# No retry on rate limits: a 429 means the free-tier window is exhausted, and
+# retrying just burns more of the quota and slows the reply. Fail fast instead
+# (the chat handler turns a 429 into a graceful "high demand" message).
+_MAX_RETRIES = 1
 _MAX_DELAY = 6
 
 
