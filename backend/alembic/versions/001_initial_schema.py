@@ -18,11 +18,9 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.execute('CREATE EXTENSION IF NOT EXISTS "pgcrypto"')
-
     op.create_table(
         "conversations",
-        sa.Column("id", UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column("id", UUID(as_uuid=True), primary_key=True),
         sa.Column("session_id", sa.String(255), unique=True, nullable=False),
         sa.Column("status", sa.String(50), nullable=False, server_default="active"),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("NOW()")),
@@ -35,7 +33,7 @@ def upgrade() -> None:
 
     op.create_table(
         "messages",
-        sa.Column("id", UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column("id", UUID(as_uuid=True), primary_key=True),
         sa.Column("conversation_id", UUID(as_uuid=True), sa.ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False),
         sa.Column("role", sa.String(20), nullable=False),
         sa.Column("content", sa.Text, nullable=False),
@@ -49,7 +47,7 @@ def upgrade() -> None:
 
     op.create_table(
         "knowledge_sources",
-        sa.Column("id", UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column("id", UUID(as_uuid=True), primary_key=True),
         sa.Column("name", sa.String(255), nullable=False),
         sa.Column("source_type", sa.String(50), nullable=False),
         sa.Column("source_path", sa.Text, nullable=True),
@@ -63,7 +61,7 @@ def upgrade() -> None:
 
     op.create_table(
         "escalations",
-        sa.Column("id", UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column("id", UUID(as_uuid=True), primary_key=True),
         sa.Column("conversation_id", UUID(as_uuid=True), sa.ForeignKey("conversations.id"), nullable=False),
         sa.Column("reason", sa.String(100), nullable=False),
         sa.Column("confidence_score", sa.Float, nullable=True),
@@ -79,7 +77,7 @@ def upgrade() -> None:
 
     op.create_table(
         "feedback",
-        sa.Column("id", UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column("id", UUID(as_uuid=True), primary_key=True),
         sa.Column("message_id", UUID(as_uuid=True), sa.ForeignKey("messages.id"), nullable=False),
         sa.Column("conversation_id", UUID(as_uuid=True), sa.ForeignKey("conversations.id"), nullable=False),
         sa.Column("rating", sa.String(10), nullable=False),
