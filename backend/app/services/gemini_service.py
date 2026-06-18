@@ -10,15 +10,17 @@ from app.core.logging import logger
 # (thinking models can otherwise spend hundreds of tokens per reply).
 _GEN_CONFIG = {"max_output_tokens": 768, "temperature": 0.3}
 
-_MAX_RETRIES = 4
+# Fail fast: at most one short retry, so the chat never hangs on a long
+# rate-limit backoff. Speed is preferred over waiting out the full window.
+_MAX_RETRIES = 2
+_MAX_DELAY = 6
 
 
 def _retry_delay_seconds(err: str, attempt: int) -> float:
-    """Honor Gemini's suggested retry_delay if present, else exponential backoff."""
     match = re.search(r"retry_delay\D+(\d+)", err) or re.search(r"retry in (\d+)", err)
     if match:
-        return min(float(match.group(1)) + 1, 30)
-    return min(2 ** attempt, 30)
+        return min(float(match.group(1)) + 1, _MAX_DELAY)
+    return min(2 ** attempt, _MAX_DELAY)
 
 
 class GeminiService:

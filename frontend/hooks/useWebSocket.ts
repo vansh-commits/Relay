@@ -12,10 +12,18 @@ export function useWebSocket(sessionId: string, onFrame: Handler) {
   const shouldCloseRef = useRef(false);
   const [connected, setConnected] = useState(false);
 
+  // Keep the latest handler in a ref so `connect` stays stable and the effect
+  // never tears down / reopens the socket (which previously caused duplicate
+  // connections and duplicate API calls).
+  const onFrameRef = useRef(onFrame);
+  onFrameRef.current = onFrame;
+
   const connect = useCallback(() => {
     if (shouldCloseRef.current) return;
-    const url = wsUrl(sessionId);
-    const ws = new WebSocket(url);
+    // Don't open a second socket if one is already open/connecting.
+    if (wsRef.current && wsRef.current.readyState <= WebSocket.OPEN) return;
+
+    const ws = new WebSocket(wsUrl(sessionId));
     wsRef.current = ws;
 
     ws.onopen = () => {
@@ -25,8 +33,7 @@ export function useWebSocket(sessionId: string, onFrame: Handler) {
 
     ws.onmessage = (ev) => {
       try {
-        const frame = JSON.parse(ev.data) as WSFrame;
-        onFrame(frame);
+        onFrameRef.current(JSON.parse(ev.data) as WSFrame);
       } catch {
         // ignore malformed frames
       }
@@ -42,7 +49,7 @@ export function useWebSocket(sessionId: string, onFrame: Handler) {
     };
 
     ws.onerror = () => ws.close();
-  }, [sessionId, onFrame]);
+  }, [sessionId]);
 
   useEffect(() => {
     shouldCloseRef.current = false;

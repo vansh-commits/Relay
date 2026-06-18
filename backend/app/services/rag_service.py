@@ -68,14 +68,7 @@ USER: {user_message}
 A:"""
 
 
-async def generate_response(user_message: str, session_id: str, db: AsyncSession) -> dict:
-    history = await get_conversation_history(session_id, db, limit=10)
-    chunks, confidence = await retrieve_context(user_message)
+async def generate_answer(user_message: str, chunks: list[dict], history: list[dict]) -> str:
+    """One Gemini generation call. Caller decides whether it's worth making."""
     prompt = _build_prompt(user_message, chunks, history)
-    content = await gemini_service.chat(prompt)
-
-    return {
-        "content": content,
-        "confidence_score": confidence,
-        "retrieved_chunks": chunks,
-    }
+    return await gemini_service.chat(prompt)

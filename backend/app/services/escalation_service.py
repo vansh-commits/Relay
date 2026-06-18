@@ -7,7 +7,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.models.conversation import Conversation
 from app.models.escalation import Escalation
-from app.services.gemini_service import gemini_service
 
 _OUT_OF_SCOPE_PHRASES = [
     "i don't have specific information about that",
@@ -29,24 +28,24 @@ def should_escalate(confidence: float, response_text: str) -> tuple[bool, str]:
     return False, ""
 
 
-async def _generate_handoff_summary(messages: list[dict], reason: str, confidence: float) -> str:
-    formatted = "\n".join(f"{m['role'].upper()}: {m['content']}" for m in messages[-10:])
-    prompt = f"""Generate a concise handoff summary for a human support specialist (max 150 words).
+_REASON_TEXT = {
+    "low_confidence": "the knowledge base did not contain a confident match for the question",
+    "out_of_scope": "the question falls outside the available knowledge base",
+    "user_request": "the customer asked to speak with a person",
+}
 
-Escalation reason: {reason}
-AI confidence score: {confidence:.2f}
 
-Conversation:
-{formatted}
-
-Include:
-1. Issue summary (1-2 sentences)
-2. What the AI attempted
-3. Why escalation was triggered
-4. Recommended next steps for the human agent
-
-Be concise and professional."""
-    return await gemini_service.chat(prompt)
+def _build_handoff_summary(messages: list[dict], reason: str, confidence: float) -> str:
+    """Template-based summary — no LLM call, so escalation costs zero API requests."""
+    last_user = next((m["content"] for m in reversed(messages) if m["role"] == "user"), "")
+    recent = "\n".join(f"  {m['role']}: {m['content']}" for m in messages[-6:])
+    return (
+        f"Customer question: {last_user}\n\n"
+        f"Escalation reason: {_REASON_TEXT.get(reason, reason)} "
+        f"(confidence {confidence:.0%}).\n\n"
+        f"Recent conversation:\n{recent}\n\n"
+        f"Next step: review the question and respond directly to the customer."
+    )
 
 
 async def create_escalation(
@@ -56,7 +55,7 @@ async def create_escalation(
     messages: list[dict],
     db: AsyncSession,
 ) -> Escalation:
-    summary = await _generate_handoff_summary(messages, reason, confidence_score)
+    summary = _build_handoff_summary(messages, reason, confidence_score)
 
     escalation = Escalation(
         conversation_id=conversation_id,

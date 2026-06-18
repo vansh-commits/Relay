@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.core.logging import logger
 from app.database import async_session_factory, get_db
 from app.models.conversation import Conversation
@@ -91,7 +92,17 @@ async def websocket_chat(session_id: str, websocket: WebSocket):
                 await manager.send(session_id, {"type": "typing", "role": "assistant"})
 
                 try:
-                    result = await rag_service.generate_response(user_content, session_id, db)
+                    # Retrieve first (1 embedding call). If the knowledge base has
+                    # no confident match, escalate immediately and skip generation —
+                    # saving a Gemini request on the common "we don't know" path.
+                    chunks, confidence = await rag_service.retrieve_context(user_content)
+                    history = await rag_service.get_conversation_history(session_id, db, limit=10)
+
+                    if confidence < settings.CONFIDENCE_THRESHOLD:
+                        do_escalate, reason, content = True, "low_confidence", None
+                    else:
+                        content = await rag_service.generate_answer(user_content, chunks, history)
+                        do_escalate, reason = escalation_service.should_escalate(confidence, content)
                 except Exception as exc:
                     detail = str(exc)
                     logger.error("RAG error", error=detail)
@@ -104,28 +115,27 @@ async def websocket_chat(session_id: str, websocket: WebSocket):
                     await manager.send(session_id, {"type": "error", "code": code, "message": msg})
                     continue
 
-                do_escalate, reason = escalation_service.should_escalate(
-                    result["confidence_score"], result["content"]
-                )
-
-                # Store assistant message
-                assistant_msg = Message(
-                    conversation_id=conversation.id,
-                    role="assistant",
-                    content=result["content"],
-                    confidence_score=result["confidence_score"],
-                    retrieved_chunks=result["retrieved_chunks"],
-                )
-                db.add(assistant_msg)
-                await db.commit()
-                await db.refresh(assistant_msg)
+                # Persist the assistant turn only when we actually generated one
+                assistant_msg = None
+                if content is not None:
+                    assistant_msg = Message(
+                        conversation_id=conversation.id,
+                        role="assistant",
+                        content=content,
+                        confidence_score=confidence,
+                        retrieved_chunks=chunks,
+                    )
+                    db.add(assistant_msg)
+                    await db.commit()
+                    await db.refresh(assistant_msg)
 
                 if do_escalate:
-                    history = await rag_service.get_conversation_history(session_id, db, limit=20)
+                    if history is None:
+                        history = await rag_service.get_conversation_history(session_id, db, limit=10)
                     esc = await escalation_service.create_escalation(
                         conversation_id=conversation.id,
                         reason=reason,
-                        confidence_score=result["confidence_score"],
+                        confidence_score=confidence,
                         messages=history,
                         db=db,
                     )
@@ -140,8 +150,8 @@ async def websocket_chat(session_id: str, websocket: WebSocket):
                         "type": "message",
                         "message_id": str(assistant_msg.id),
                         "role": "assistant",
-                        "content": result["content"],
-                        "confidence": result["confidence_score"],
+                        "content": content,
+                        "confidence": confidence,
                         "mode": "ai",
                         "timestamp": datetime.now(timezone.utc).isoformat(),
                     })
