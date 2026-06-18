@@ -1,8 +1,21 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { api } from "@/lib/api";
 import type { ChatMessage, ChatMode, WSFrame } from "@/lib/types";
 import { useWebSocket } from "./useWebSocket";
+
+interface StoredMessage {
+  id: string;
+  role: ChatMessage["role"];
+  content: string;
+  confidence_score: number | null;
+  created_at: string;
+}
+interface ConversationDetail {
+  conversation: { status: string };
+  messages: StoredMessage[];
+}
 
 function getOrCreateSessionId(): string {
   if (typeof window === "undefined") return crypto.randomUUID();
@@ -125,6 +138,36 @@ export function useChat(token: string | null, onSent?: () => void) {
         ]);
         break;
     }
+  }, []);
+
+  // Load saved history once on mount so a page refresh keeps the conversation.
+  // (DB read only — no LLM tokens. Runs once; session rotation after a resolve
+  // intentionally does NOT reload, so the resolution message stays visible.)
+  useEffect(() => {
+    let cancelled = false;
+    const sid = sessionId;
+    api
+      .get<ConversationDetail>(`/api/v1/conversations/${sid}`)
+      .then((data) => {
+        if (cancelled || !data.messages?.length) return;
+        setMessages(
+          data.messages.map((m) => ({
+            id: m.id,
+            role: m.role,
+            content: m.content,
+            confidence: m.confidence_score ?? undefined,
+            timestamp: m.created_at,
+          })),
+        );
+        if (data.conversation.status === "escalated" || data.conversation.status === "assigned") {
+          setMode("human");
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const { connected, send } = useWebSocket(sessionId, token, handleFrame);

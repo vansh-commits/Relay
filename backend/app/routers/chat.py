@@ -39,7 +39,7 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
-async def _get_or_create_conversation(session_id: str, user_id, db: AsyncSession) -> Conversation:
+async def _get_or_create_conversation(session_id: str, db: AsyncSession, user_id=None) -> Conversation:
     result = await db.execute(select(Conversation).where(Conversation.session_id == session_id))
     conv = result.scalar_one_or_none()
     if conv is None:
@@ -63,7 +63,7 @@ async def websocket_chat(session_id: str, websocket: WebSocket):
     logger.info("WebSocket connected", session_id=session_id, user_id=str(user_id))
 
     async with async_session_factory() as db:
-        conversation = await _get_or_create_conversation(session_id, user_id, db)
+        conversation = await _get_or_create_conversation(session_id, db, user_id)
 
         await manager.send(session_id, {
             "type": "connected",
