@@ -108,13 +108,14 @@ async def websocket_chat(session_id: str, websocket: WebSocket):
                 await db.commit()
                 await db.refresh(user_msg)
 
-                # If a human specialist is handling this conversation, don't run
-                # the AI — the message is recorded for the agent and the customer
-                # can keep talking freely.
+                # Only go silent once a human agent has actually picked up the
+                # ticket (status "assigned"). A merely pending escalation must NOT
+                # stop the AI from answering the next question — otherwise one
+                # off-topic question would mute the assistant for the whole session.
                 status_res = await db.execute(
                     select(Conversation.status).where(Conversation.id == conversation.id)
                 )
-                if status_res.scalar_one() in ("escalated", "assigned"):
+                if status_res.scalar_one() == "assigned":
                     continue
 
                 # Greetings / pleasantries get a friendly canned reply so they

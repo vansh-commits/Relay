@@ -47,6 +47,7 @@ export function useChat(token: string | null, onSent?: () => void) {
 
       case "message":
         setIsTyping(false);
+        setMode("ai"); // AI is answering again — clear any "specialist" banner
         setMessages((prev) => [
           ...prev,
           {
@@ -187,6 +188,16 @@ export function useChat(token: string | null, onSent?: () => void) {
     [send, onSent]
   );
 
+  const startNewChat = useCallback(() => {
+    const next = crypto.randomUUID();
+    localStorage.setItem("cs_session_id", next);
+    setSessionId(next);
+    setMessages([]);
+    setMode("ai");
+    setEscalationId(null);
+    setIsTyping(false);
+  }, []);
+
   return {
     sessionId,
     messages,
@@ -196,5 +207,6 @@ export function useChat(token: string | null, onSent?: () => void) {
     quotaExceeded,
     connected,
     sendMessage,
+    startNewChat,
   };
 }

@@ -11,7 +11,7 @@ import { ModeIndicator } from "./ModeIndicator";
 
 export function ChatShell() {
   const { user, ready, signup, login, guest, logout, noteQuestionSent } = useAuth();
-  const { sessionId, messages, mode, isTyping, quotaExceeded, connected, sendMessage } = useChat(
+  const { sessionId, messages, mode, isTyping, quotaExceeded, connected, sendMessage, startNewChat } = useChat(
     user?.token ?? null,
     noteQuestionSent,
   );
@@ -80,6 +80,12 @@ export function ChatShell() {
             </span>
           )}
           <ModeIndicator mode={mode} />
+          <button
+            onClick={startNewChat}
+            className="text-xs text-text-muted hover:text-text-secondary transition-colors px-2 py-1 rounded-lg hover:bg-bg-elevated"
+          >
+            New chat
+          </button>
           <div
             className={`w-1.5 h-1.5 rounded-full ${connected ? "bg-success" : "bg-text-muted"}`}
             title={connected ? "Connected" : "Reconnecting…"}
