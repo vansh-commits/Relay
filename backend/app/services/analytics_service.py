@@ -13,7 +13,7 @@ async def get_query_volume(db: AsyncSession, period_days: int, granularity: str)
                 COUNT(*) AS count
             FROM messages
             WHERE role = 'user'
-              AND created_at >= NOW() - (:period_days || ' days')::INTERVAL
+              AND created_at >= NOW() - make_interval(days => :period_days)
             GROUP BY bucket
             ORDER BY bucket
         """),
@@ -30,7 +30,7 @@ async def get_resolution_rate(db: AsyncSession, period_days: int) -> list[dict]:
                 COUNT(*) AS total,
                 COUNT(*) FILTER (WHERE status = 'resolved') AS resolved
             FROM conversations
-            WHERE created_at >= NOW() - (:period_days || ' days')::INTERVAL
+            WHERE created_at >= NOW() - make_interval(days => :period_days)
             GROUP BY DATE(created_at)
             ORDER BY date
         """),
@@ -53,7 +53,7 @@ async def get_top_questions(db: AsyncSession, period_days: int, limit: int) -> l
             JOIN conversations c ON c.id = m.conversation_id
             WHERE m.role = 'user'
               AND (m.confidence_score < :threshold OR c.status = 'escalated')
-              AND m.created_at >= NOW() - (:period_days || ' days')::INTERVAL
+              AND m.created_at >= NOW() - make_interval(days => :period_days)
             ORDER BY m.created_at DESC
             LIMIT :limit
         """),
@@ -70,7 +70,7 @@ async def get_escalation_frequency(db: AsyncSession, period_days: int) -> list[d
                 COUNT(*) AS count,
                 AVG(confidence_score) AS avg_confidence
             FROM escalations
-            WHERE created_at >= NOW() - (:period_days || ' days')::INTERVAL
+            WHERE created_at >= NOW() - make_interval(days => :period_days)
             GROUP BY reason
             ORDER BY count DESC
         """),
@@ -95,7 +95,7 @@ async def get_summary_stats(db: AsyncSession, period_days: int) -> dict:
                 AVG(confidence_score) FILTER (WHERE role = 'assistant' AND confidence_score IS NOT NULL) AS avg_confidence,
                 COUNT(*) FILTER (WHERE role = 'assistant' AND confidence_score < :threshold) AS low_confidence_count
             FROM messages
-            WHERE created_at >= NOW() - (:period_days || ' days')::INTERVAL
+            WHERE created_at >= NOW() - make_interval(days => :period_days)
         """),
         {"threshold": settings.CONFIDENCE_THRESHOLD, "period_days": period_days},
     )
@@ -112,7 +112,7 @@ async def get_summary_stats(db: AsyncSession, period_days: int) -> dict:
                 COUNT(*) AS total,
                 COUNT(*) FILTER (WHERE status = 'resolved') AS resolved
             FROM conversations
-            WHERE created_at >= NOW() - (:period_days || ' days')::INTERVAL
+            WHERE created_at >= NOW() - make_interval(days => :period_days)
         """),
         {"period_days": period_days},
     )

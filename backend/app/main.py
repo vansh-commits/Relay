@@ -56,6 +56,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(chat.ws_router, tags=["chat"])
 app.include_router(chat.router, prefix="/api/v1", tags=["chat"])
 app.include_router(knowledge.router, prefix="/api/v1/knowledge", tags=["knowledge"])
 app.include_router(escalation.router, prefix="/api/v1/escalations", tags=["escalations"])

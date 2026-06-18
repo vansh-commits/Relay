@@ -12,7 +12,8 @@ from app.models.message import Message
 from app.schemas.chat import ConversationDetail, ConversationOut, MessageOut
 from app.services import escalation_service, rag_service
 
-router = APIRouter()
+router = APIRouter()        # REST endpoints, mounted under /api/v1
+ws_router = APIRouter()     # WebSocket, mounted at root (no prefix)
 
 
 class ConnectionManager:
@@ -46,7 +47,7 @@ async def _get_or_create_conversation(session_id: str, db: AsyncSession) -> Conv
     return conv
 
 
-@router.websocket("/ws/chat/{session_id}")
+@ws_router.websocket("/ws/chat/{session_id}")
 async def websocket_chat(session_id: str, websocket: WebSocket):
     await manager.connect(session_id, websocket)
     logger.info("WebSocket connected", session_id=session_id)
