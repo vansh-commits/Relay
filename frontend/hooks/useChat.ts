@@ -61,6 +61,33 @@ export function useChat() {
         ]);
         break;
 
+      case "agent_joined":
+        setIsTyping(false);
+        setMode("human");
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            role: "system",
+            content: frame.message,
+            timestamp: new Date().toISOString(),
+          },
+        ]);
+        break;
+
+      case "resolved":
+        setIsTyping(false);
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            role: "system",
+            content: frame.message,
+            timestamp: new Date().toISOString(),
+          },
+        ]);
+        break;
+
       case "error":
         setIsTyping(false);
         setMessages((prev) => [

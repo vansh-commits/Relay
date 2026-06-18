@@ -24,6 +24,8 @@ export type WSFrame =
   | { type: "typing"; role: string }
   | { type: "message"; message_id: string; role: string; content: string; confidence: number; mode: ChatMode; timestamp: string }
   | { type: "escalation"; escalation_id: string; reason: string; message: string }
+  | { type: "agent_joined"; agent_name: string; message: string }
+  | { type: "resolved"; message: string }
   | { type: "error"; code: string; message: string }
   | { type: "pong" };
 

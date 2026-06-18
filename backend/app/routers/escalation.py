@@ -8,9 +8,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.models.conversation import Conversation
 from app.models.escalation import Escalation
+from app.routers.chat import manager
 from app.schemas.escalation import AssignRequest, EscalationListResponse, EscalationOut, ResolveRequest
 
 router = APIRouter()
+
+
+async def _notify_customer(conversation_id: uuid.UUID, db: AsyncSession, frame: dict) -> None:
+    """Push a live update to the customer's chat WebSocket, if still connected."""
+    result = await db.execute(
+        select(Conversation.session_id).where(Conversation.id == conversation_id)
+    )
+    session_id = result.scalar_one_or_none()
+    if session_id:
+        await manager.send(session_id, frame)
 
 
 @router.get("", response_model=EscalationListResponse)
@@ -62,6 +73,12 @@ async def assign_escalation(
     )
     await db.commit()
     await db.refresh(esc)
+
+    await _notify_customer(esc.conversation_id, db, {
+        "type": "agent_joined",
+        "agent_name": body.agent_name,
+        "message": f"{body.agent_name} has joined the conversation and will help you shortly.",
+    })
     return EscalationOut.model_validate(esc)
 
 
@@ -88,4 +105,9 @@ async def resolve_escalation(
     )
     await db.commit()
     await db.refresh(esc)
+
+    await _notify_customer(esc.conversation_id, db, {
+        "type": "resolved",
+        "message": "This conversation has been resolved. Feel free to start a new chat anytime.",
+    })
     return EscalationOut.model_validate(esc)
