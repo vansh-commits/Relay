@@ -63,6 +63,11 @@ app.include_router(feedback.router, prefix="/api/v1/feedback", tags=["feedback"]
 app.include_router(analytics.router, prefix="/api/v1/analytics", tags=["analytics"])
 
 
+@app.get("/", tags=["health"])
+async def root():
+    return {"service": "support-agent", "status": "running"}
+
+
 @app.get("/health", tags=["health"])
 async def health():
     try:
