@@ -1,20 +1,15 @@
-import chromadb
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.chroma import get_collection
 from app.config import settings
 from app.models.message import Message
 from app.models.conversation import Conversation
 from app.services.gemini_service import gemini_service
 
 
-def _get_chroma_collection():
-    client = chromadb.HttpClient(host=settings.CHROMA_HOST, port=settings.CHROMA_PORT)
-    return client.get_or_create_collection("knowledge_base", metadata={"hnsw:space": "cosine"})
-
-
 async def retrieve_context(query: str, n_results: int = 5) -> tuple[list[dict], float]:
-    collection = _get_chroma_collection()
+    collection = get_collection()
     count = collection.count()
     if count == 0:
         return [], 0.0

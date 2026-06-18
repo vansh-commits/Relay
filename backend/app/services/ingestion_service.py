@@ -1,7 +1,6 @@
 import uuid
 from pathlib import Path
 
-import chromadb
 import fitz  # PyMuPDF
 import httpx
 from bs4 import BeautifulSoup
@@ -9,6 +8,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.chroma import get_collection
 from app.config import settings
 from app.core.logging import logger
 from app.models.knowledge_source import KnowledgeSource
@@ -19,11 +19,6 @@ _splitter = RecursiveCharacterTextSplitter(
     chunk_overlap=50,
     separators=["\n\n", "\n", ". ", " ", ""],
 )
-
-
-def _get_chroma_collection():
-    client = chromadb.HttpClient(host=settings.CHROMA_HOST, port=settings.CHROMA_PORT)
-    return client.get_or_create_collection("knowledge_base", metadata={"hnsw:space": "cosine"})
 
 
 def _extract_pdf(file_path: str) -> str:
@@ -55,7 +50,7 @@ async def _embed_and_store(
     source_name: str,
     source_type: str,
 ) -> int:
-    collection = _get_chroma_collection()
+    collection = get_collection()
     embeddings = await gemini_service.embed_batch(chunks)
     ids = [f"{source_id}_{i}" for i in range(len(chunks))]
     metadatas = [
@@ -118,7 +113,7 @@ async def run_ingestion(source_id: uuid.UUID, db_factory: async_sessionmaker) ->
 
 
 def delete_from_chroma(source_id: uuid.UUID) -> None:
-    collection = _get_chroma_collection()
+    collection = get_collection()
     results = collection.get(where={"source_id": str(source_id)}, include=[])
     if results["ids"]:
         collection.delete(ids=results["ids"])

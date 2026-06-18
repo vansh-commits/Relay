@@ -1,10 +1,11 @@
+import asyncio
 from contextlib import asynccontextmanager
 
-import chromadb
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
+from app import chroma
 from app.config import settings
 from app.core.logging import setup_logging, logger
 from app.database import async_session_factory, engine
@@ -21,14 +22,17 @@ async def lifespan(app: FastAPI):
         await conn.execute(text("SELECT 1"))
     logger.info("Database connection verified")
 
-    # Verify ChromaDB connectivity and ensure collection exists
-    chroma = chromadb.HttpClient(host=settings.CHROMA_HOST, port=settings.CHROMA_PORT)
-    chroma.heartbeat()
-    chroma.get_or_create_collection(
-        name="knowledge_base",
-        metadata={"hnsw:space": "cosine"},
-    )
-    logger.info("ChromaDB connection verified")
+    # Probe ChromaDB without blocking startup. A slow or unreachable vector
+    # store must never prevent the API (and /health) from coming up.
+    try:
+        ok = await asyncio.wait_for(asyncio.to_thread(chroma.ping), timeout=10)
+        if ok:
+            await asyncio.to_thread(chroma.get_collection)
+            logger.info("ChromaDB connection verified")
+        else:
+            logger.warning("ChromaDB heartbeat failed; starting in degraded mode")
+    except Exception as exc:
+        logger.warning("ChromaDB probe errored; starting in degraded mode", error=str(exc))
 
     yield
 
@@ -61,8 +65,20 @@ app.include_router(analytics.router, prefix="/api/v1/analytics", tags=["analytic
 
 @app.get("/health", tags=["health"])
 async def health():
-    async with async_session_factory() as session:
-        await session.execute(text("SELECT 1"))
-    chroma = chromadb.HttpClient(host=settings.CHROMA_HOST, port=settings.CHROMA_PORT)
-    chroma.heartbeat()
-    return {"status": "ok", "db": "connected", "chroma": "connected"}
+    try:
+        async with async_session_factory() as session:
+            await session.execute(text("SELECT 1"))
+        db_ok = True
+    except Exception:
+        db_ok = False
+
+    try:
+        chroma_ok = await asyncio.wait_for(asyncio.to_thread(chroma.ping), timeout=5)
+    except Exception:
+        chroma_ok = False
+
+    return {
+        "status": "ok" if db_ok and chroma_ok else "degraded",
+        "db": "connected" if db_ok else "unreachable",
+        "chroma": "connected" if chroma_ok else "unreachable",
+    }
